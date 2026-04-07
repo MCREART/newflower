@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>你的本命花是什么？</title>
+    <style>
+        :root {
+            --primary: #ffb7c5;
+            --bg: #fff5f7;
+            --text: #5a4b4e;
+            --card-bg: rgba(255, 255, 255, 0.95);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #ffeef2 0%, #e0f7fa 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        /* 音乐播放器按钮 */
+        #music-btn {
+            position: fixed; top: 20px; right: 20px; width: 40px; height: 40px;
+            background: var(--card-bg); border-radius: 50%; text-align: center;
+            line-height: 40px; font-size: 20px; cursor: pointer; z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .spin { animation: spin 3s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        .container {
+            width: 100%; max-width: 480px; background: var(--card-bg);
+            border-radius: 20px; box-shadow: 0 10px 30px rgba(255, 183, 197, 0.4);
+            padding: 30px 20px; text-align: center; position: relative; overflow: hidden;
+        }
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.6s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h1 { font-size: 24px; margin-bottom: 10px; color: #e88fa1; }
+        p.subtitle { font-size: 14px; color: #888; margin-bottom: 30px; }
+        .btn {
+            display: block; width: 100%; padding: 15px; margin: 12px 0;
+            background: white; border: 2px solid var(--primary);
+            border-radius: 12px; font-size: 15px; color: var(--text);
+            cursor: pointer; transition: all 0.3s;
+        }
+        .btn:hover { background: var(--primary); color: white; transform: scale(1.02); }
+        .progress { font-size: 12px; color: #aaa; margin-bottom: 20px; }
+        
+        /* 结果卡片样式 */
+        .result-emoji { font-size: 70px; margin: 10px 0; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .result-title { font-size: 26px; font-weight: bold; margin-bottom: 8px; color: #d87093; }
+        .result-poetry { font-size: 15px; font-style: italic; color: #666; margin-bottom: 15px; }
+        .result-desc { font-size: 14px; line-height: 1.6; text-align: left; padding: 15px; background: rgba(255,183,197,0.1); border-radius: 10px; margin-bottom: 15px;}
+        
+        /* 穿搭推荐样式 */
+        .style-box { background: linear-gradient(to right, #fff0f3, #e0f7fa); padding: 12px; border-radius: 10px; text-align: left; font-size: 14px;}
+        .style-title { font-weight: bold; color: #008080; margin-bottom: 5px; }
+        
+        .action-btn { background: #e88fa1; color: white; border: none; margin-top: 20px; font-weight: bold; }
+        .action-btn:hover { background: #d87093; }
+    </style>
+</head>
+<body>
+
+<!-- 背景音乐音频标签 -->
+<audio id="bgm" loop>
+    <source src="bgm.mp3" type="audio/mpeg">
+</audio>
+<!-- 音乐控制按钮 -->
+<div id="music-btn" onclick="toggleMusic()">🎵</div>
+
+<div class="container" id="app">
+    <!-- 首页 -->
+    <div id="start-screen" class="fade-in">
+        <h1>🌸 你的本命花与专属风格 🌸</h1>
+        <p class="subtitle">灵魂深处，潜藏着哪种花语与美学？</p>
+        <button class="btn action-btn" onclick="startTest()">开始测试 (开启音乐)</button>
+    </div>
+
+    <!-- 问答页 -->
+    <div id="question-screen" class="hidden fade-in">
+        <div class="progress" id="progress-text">1 / 6</div>
+        <h2 id="question-title" style="margin-bottom: 25px; font-size: 17px; line-height: 1.4;">题目</h2>
+        <div id="options-container"></div>
+    </div>
+
+    <!-- 结果页 -->
+    <div id="result-screen" class="hidden fade-in">
+        <div class="result-emoji" id="res-emoji">🌸</div>
+        <div class="result-title" id="res-title">樱花</div>
+        <div class="result-poetry" id="res-poetry">“樱花落下的速度，是秒速五厘米。”</div>
+        <div class="result-desc" id="res-desc">描述内容...</div>
+        
+        <!-- 穿衣风格推荐 -->
+        <div class="style-box">
+            <div class="style-title">👗 专属穿搭风格推荐：</div>
+            <div id="res-style">风格内容...</div>
+        </div>
+
+        <button class="btn action-btn" onclick="location.reload()">↺ 重新测试</button>
+        <p style="font-size: 12px; color: #aaa; margin-top: 10px;">(长按截图保存你的专属图鉴)</p>
+    </div>
+</div>
+
+<script>
+    // 音乐控制逻辑
+    let bgm = document.getElementById('bgm');
+    let musicBtn = document.getElementById('music-btn');
+    let isPlaying = false;
+
+    function toggleMusic() {
+        if (isPlaying) {
+            bgm.pause();
+            musicBtn.classList.remove('spin');
+        } else {
+            bgm.play();
+            musicBtn.classList.add('spin');
+        }
+        isPlaying = !isPlaying;
+    }
+
+    // 题库设计 (增加到了6题)
+    const questions = [
+        {
+            title: "1. 难得的周末，你通常会怎么度过？",
+            options: [
+                { type: 'A', text: "泡杯茶，在家看书或追剧放松" },
+                { type: 'B', text: "约上三五好友聚餐、去户外游玩" },
+                { type: 'C', text: "独处，整理房间或规划下周工作" }
+            ]
+        },
+        {
+            title: "2. 当你和朋友发生分歧时，你的第一反应是？",
+            options: [
+                { type: 'A', text: "尽量委婉表达，寻找折中方案" },
+                { type: 'B', text: "直接说出真实想法，不怕争论" },
+                { type: 'C', text: "冷静分析对错，讲究客观逻辑" }
+            ]
+        },
+        {
+            title: "3. 你最喜欢的季节与天气是？",
+            options: [
+                { type: 'A', text: "春日微风与绵绵细雨" },
+                { type: 'B', text: "夏日热烈灿烂的阳光" },
+                { type: 'C', text: "秋日清冷高远的晴空" }
+            ]
+        },
+        {
+            title: "4. 面对未来的人生目标，你的态度是？",
+            options: [
+                { type: 'A', text: "顺其自然，过好当下的每一天" },
+                { type: 'B', text: "充满激情，勇敢尝试不同的可能" },
+                { type: 'C', text: "目标明确，制定严格的计划并执行" }
+            ]
+        },
+        {
+            title: "5. 逛美术馆或看展览时，你更会被哪种作品吸引？",
+            options: [
+                { type: 'A', text: "色彩柔和、充满情感表达的水彩画" },
+                { type: 'B', text: "色彩强烈、充满视觉冲击力的波普艺术" },
+                { type: 'C', text: "结构严谨、极简主义的雕塑或建筑" }
+            ]
+        },
+        {
+            title: "6. 遇到突发的挫折或压力时，你的主要应对方式是？",
+            options: [
+                { type: 'A', text: "向亲近的人倾诉，通过交流缓解情绪" },
+                { type: 'B', text: "去运动、K歌，用高强度的活动发泄" },
+                { type: 'C', text: "一个人静一静，理性分析寻找对策" }
+            ]
+        }
+    ];
+
+    // 结果库 (包含性格解析 + 穿搭推荐)
+    const resultsData = {
+        sakura: { emoji: "🌸", name: "樱花", poetry: "“温柔纯粹，不争不抢，静静绽放。”", desc: "你的性格温和且富有同理心，追求内心的平静与美好。在人群中，你就像春日的樱花，给人带来治愈与温暖。", style: "【温柔甜美风】推荐日系浅色系、柔软的针织衫、碎花裙。不过分强调曲线，追求舒适与视觉上的柔和感。" },
+        sunflower: { emoji: "🌻", name: "向日葵", poetry: "“心向阳光，无惧悲伤。”", desc: "你热情开朗，充满活力！你的乐观极具感染力，是朋友眼中的小太阳，勇敢且直率地追求自己热爱的事物。", style: "【阳光活力风】推荐美式复古、运动休闲装或多巴胺亮色系。棒球帽、帆布鞋、宽松卫衣最能衬托你的元气。" },
+        plum: { emoji: "🌿", name: "寒梅", poetry: "“凌寒独自开，傲骨伴霜雪。”", desc: "你极其独立、理智且清醒。你不随波逐流，有坚定的内心世界。面对困难展现出的坚韧常让人惊叹。", style: "【极简冷淡风】推荐黑白灰大色块、西装外套、利落剪裁的衬衫。化繁为简，Less is more，彰显高级智性美。" },
+        rose: { emoji: "🌹", name: "红玫瑰", poetry: "“热烈而浪漫，一半坚韧一半柔情。”", desc: "你感性与热情并存，追求浪漫。你对生活有着热烈的向往，爱憎分明是你的标签，散发着迷人的魅力。", style: "【法式浪漫风】推荐修身剪裁、复古红/黑色系、丝绒材质或法式桔梗裙。适当展现曲线，搭配精致红唇，风情万种。" },
+        lotus: { emoji: "🪷", name: "荷花", poetry: "“出淤泥而不染，濯清涟而不妖。”", desc: "你外表看似随和，内心却十分通透理智。你不喜欢复杂的社交，更愿意保持精神的独立与高洁，气质清冷。", style: "【新中式/清冷风】推荐棉麻材质、素雅低饱和度色彩。带有国风盘扣、水墨元素的长裙或禅意穿搭最契合你的气场。" },
+        tulip: { emoji: "🌷", name: "郁金香", poetry: "“高贵优雅，独立且自信。”", desc: "你既有外向的张力，又有理智的克制。你追求高品质的生活，无论在职场还是生活中，都能游刃有余。", style: "【职场优雅风】推荐小香风套装、质感风衣、真丝衬衫。注重面料质感与精致的金属配饰，展现都市大女主的体面。" },
+        daisy: { emoji: "🌼", name: "小雏菊", poetry: "“天真烂漫，随性且自由。”", desc: "你的性格十分均衡，能安静独处也能融入群体。你有一颗纯真的心，不拘泥于常规，过着随性自由的人生。", style: "【随性森系风】推荐大地色系、宽松舒适的棉服、多层次的叠穿。不被定义，怎么舒服怎么穿，充满随性的文艺气息。" }
+    };
+
+    let currentIndex = 0;
+    let answers = [];
+
+    function startTest() {
+        if(!isPlaying) toggleMusic(); // 点击开始测试时自动播放音乐
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('question-screen').classList.remove('hidden');
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        const q = questions[currentIndex];
+        document.getElementById('progress-text').innerText = `${currentIndex + 1} / ${questions.length}`;
+        document.getElementById('question-title').innerText = q.title;
+        
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        
+        // 使用 for 循环遍历选项
+        for(let i = 0; i < q.options.length; i++) {
+            const opt = q.options[i];
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.innerText = opt.text;
+            btn.onclick = () => selectOption(opt.type);
+            container.appendChild(btn);
+        }
+    }
+
+    function selectOption(type) {
+        answers.push(type);
+        currentIndex++;
+        
+        if(currentIndex < questions.length) {
+            const qScreen = document.getElementById('question-screen');
+            qScreen.classList.remove('fade-in');
+            void qScreen.offsetWidth; 
+            qScreen.classList.add('fade-in');
+            renderQuestion();
+        } else {
+            calculateResult();
+        }
+    }
+
+    function calculateResult() {
+        let counts = { A: 0, B: 0, C: 0 };
+        
+        for(let i = 0; i < answers.length; i++) {
+            counts[answers[i]]++;
+        }
+
+        let resultKey = "";
+
+        // 6题逻辑判断
+        if (counts.A >= 4) {
+            resultKey = "sakura";      // 绝对偏A：温柔
+        } else if (counts.B >= 4) {
+            resultKey = "sunflower";   // 绝对偏B：热情
+        } else if (counts.C >= 4) {
+            resultKey = "plum";        // 绝对偏C：理智
+        } else if (counts.A === 3 && counts.B === 3) {
+            resultKey = "rose";        // A与B持平
+        } else if (counts.A === 3 && counts.C === 3) {
+            resultKey = "lotus";       // A与C持平
+        } else if (counts.B === 3 && counts.C === 3) {
+            resultKey = "tulip";       // B与C持平
+        } else {
+            resultKey = "daisy";       // 均匀分布如 2A 2B 2C 或 3:2:1
+        }
+
+        showResult(resultsData[resultKey]);
+    }
+
+    function showResult(data) {
+        document.getElementById('question-screen').classList.add('hidden');
+        const resScreen = document.getElementById('result-screen');
+        resScreen.classList.remove('hidden');
+        
+        document.getElementById('res-emoji').innerText = data.emoji;
+        document.getElementById('res-title').innerText = data.name;
+        document.getElementById('res-poetry').innerText = data.poetry;
+        document.getElementById('res-desc').innerText = data.desc;
+        document.getElementById('res-style').innerText = data.style;
+    }
+</script>
+</body>
+</html>
